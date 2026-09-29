@@ -4,6 +4,8 @@
 
 <p>Foi um projeto de inicialização, onde estou começando a botar a mão na massa.</p>
 
+<img src="https://github.com/samuelferreira8041-dev/conversor-de-moedas/blob/main/assets/mockup.png?raw=true"/>
+
 <h2>🛠️ Tecnologias Utilizadas</h2>
 
 <ul>
