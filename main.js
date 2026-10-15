@@ -10,10 +10,12 @@ const currencyData = {
     jpy: { label: 'Iene Japonês', symbol: '¥', code: 'JPY', flag: '🇯🇵' },
     cad: { label: 'Dólar Canadense', symbol: 'C$', code: 'CAD', flag: '🇨🇦' },
     chf: { label: 'Franco Suíço', symbol: 'CHF', code: 'CHF', flag: '🇨🇭' },
-    aud: { label: 'Dólar Australiano', symbol: 'A$', code: 'AUD', flag: '🇦🇺' }
+    aud: { label: 'Dólar Australiano', symbol: 'A$', code: 'AUD', flag: '🇦🇺' },
+    btc: { label: 'Bitcoin', symbol: '₿', code: 'BTC', flag: '₿' }
 }
 
-const exchangeRates = {
+
+let exchangeRates = {
     brl: 1,
     usd: 0.1923,
     eur: 0.1785,
@@ -22,6 +24,34 @@ const exchangeRates = {
     cad: 0.266,
     chf: 0.183,
     aud: 0.287
+}
+
+
+async function loadExchangeRates() {
+    const currencyCodes = Object.values(currencyData)
+        .filter(currency => currency.code !== 'BRL')
+        .map(currency => `${currency.code}-BRL`)
+        .join(',')
+    const response = await fetch(`https://economia.awesomeapi.com.br/last/${currencyCodes}`)
+    if (!response.ok) {
+        throw new Error(`Falha ao buscar cotações: ${response.status}`)
+    }
+    const data = await response.json()
+
+    const updatedRates = { brl: 1 }
+    for (const [currencyKey, currency] of Object.entries(currencyData)) {
+        if (currency.code === 'BRL') continue
+
+        const rateInBrl = Number(data[`${currency.code}BRL`]?.bid)
+        if (!Number.isFinite(rateInBrl) || rateInBrl <= 0) {
+            throw new Error(`A API retornou uma cotação inválida para ${currency.label}.`)
+        }
+
+        updatedRates[currencyKey] = 1 / rateInBrl
+    }
+
+    exchangeRates = updatedRates
+    convertValues()
 }
 
 function parseCurrencyValue(value) {
@@ -35,6 +65,13 @@ function parseCurrencyValue(value) {
 
 function formatCurrency(value, currencyKey) {
     const currency = currencyData[currencyKey] || currencyData.brl
+    if (currencyKey === 'btc') {
+        const formattedValue = new Intl.NumberFormat('pt-BR', {
+            maximumFractionDigits: 8
+        }).format(value)
+        return `${currency.symbol} ${formattedValue}`
+    }
+
     return new Intl.NumberFormat('pt-BR', {
         style: 'currency',
         currency: currency.code
@@ -70,10 +107,17 @@ function convertValues() {
     const currencyValueToConvert = document.querySelector('.currency-value-to-convert')
     const currencyValueConverted = document.querySelector('.currency-value')
 
+    currencyValueToConvert.textContent = formatCurrency(inputCurrencyValue, fromCurrency)
+    if (!Number.isFinite(exchangeRates[fromCurrency]) || !Number.isFinite(exchangeRates[toCurrency])) {
+        currencyValueConverted.textContent = 'Cotação indisponível'
+        return
+    }
+
     const convertedValue = convertBetween(inputCurrencyValue, fromCurrency, toCurrency)
 
-    currencyValueToConvert.textContent = formatCurrency(inputCurrencyValue, fromCurrency)
     currencyValueConverted.textContent = formatCurrency(convertedValue, toCurrency)
+
+
 }
 
 function changeCurrency() {
@@ -87,3 +131,7 @@ convertButton.addEventListener('click', convertValues)
 
 updateCurrencyDisplay()
 convertValues()
+
+loadExchangeRates().catch(error => {
+    console.error('Não foi possível carregar as cotações:', error)
+})
